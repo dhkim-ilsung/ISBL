@@ -15,7 +15,7 @@ function App() {
   //const [baseUrl, setBaseUrl] = React.useState("http://localhost:8787");
   //const [roomId, setRoomId] = React.useState("team-a");
 
-  const DEFAULT_BASE = "http://isbl.ilsungis.com"; // 
+  const DEFAULT_BASE = "http://isbl.ilsungis.com";
   const [baseUrl, setBaseUrl] = React.useState(() =>
     localStorage.getItem("billiards.baseUrl") || DEFAULT_BASE
   );
@@ -575,10 +575,10 @@ const stats = React.useMemo(() => {
           nameToId.set(p.name, res.id);
         }
       }
-      const idToName = new Map([...roster.map(r=>[r.id,r.name]), ...((data.roster||[]).map(r=>[r.id,r.name]))]);
+      const oldIdToName = new Map((data.roster||[]).map(r=>[r.id,r.name]));
       for (const m of data.matches) {
-        const aName = idToName.get(m.aId) || m.aName || "A";
-        const bName = idToName.get(m.bId) || m.bName || "B";
+        const aName = oldIdToName.get(m.aId) || m.aName || "A";
+        const bName = oldIdToName.get(m.bId) || m.bName || "B";
         const aId = nameToId.get(aName), bId = nameToId.get(bName);
         if (!aId || !bId || aId===bId) continue;
         await fetchJSON(`${baseUrl}/api/billiards/${roomId}/matches`, {
@@ -587,10 +587,10 @@ const stats = React.useMemo(() => {
         });
       }
       for (const m of (data.matches3||[])) {
-        const p1Name = idToName.get(m.p1Id);
-        const p2Name = idToName.get(m.p2Id);
-        const p3Name = idToName.get(m.p3Id);
-        const winnerName = idToName.get(m.winnerId);
+        const p1Name = oldIdToName.get(m.p1Id);
+        const p2Name = oldIdToName.get(m.p2Id);
+        const p3Name = oldIdToName.get(m.p3Id);
+        const winnerName = oldIdToName.get(m.winnerId);
         const p1Id = nameToId.get(p1Name), p2Id = nameToId.get(p2Name), p3Id = nameToId.get(p3Name);
         const winnerId = nameToId.get(winnerName);
         if (!p1Id || !p2Id || !p3Id || !winnerId) continue;
