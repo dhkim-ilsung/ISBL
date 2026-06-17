@@ -15,7 +15,7 @@ function App() {
   //const [baseUrl, setBaseUrl] = React.useState("http://localhost:8787");
   //const [roomId, setRoomId] = React.useState("team-a");
 
-  const DEFAULT_BASE = ""; // 프론트와 서버가 같은 도메인이므로 빈 문자열(상대경로)
+  const DEFAULT_BASE = "http://isbl.ilsungis.com"; // 
   const [baseUrl, setBaseUrl] = React.useState(() =>
     localStorage.getItem("billiards.baseUrl") || DEFAULT_BASE
   );
@@ -584,6 +584,19 @@ const stats = React.useMemo(() => {
         await fetchJSON(`${baseUrl}/api/billiards/${roomId}/matches`, {
           method:"POST",
           body: JSON.stringify({ date:m.date, aId, bId, aWins:Number(m.aWins||0), bWins:Number(m.bWins||0) })
+        });
+      }
+      for (const m of (data.matches3||[])) {
+        const p1Name = idToName.get(m.p1Id);
+        const p2Name = idToName.get(m.p2Id);
+        const p3Name = idToName.get(m.p3Id);
+        const winnerName = idToName.get(m.winnerId);
+        const p1Id = nameToId.get(p1Name), p2Id = nameToId.get(p2Name), p3Id = nameToId.get(p3Name);
+        const winnerId = nameToId.get(winnerName);
+        if (!p1Id || !p2Id || !p3Id || !winnerId) continue;
+        await fetchJSON(`${baseUrl}/api/billiards/${roomId}/matches3`, {
+          method:"POST",
+          body: JSON.stringify({ date:m.date, p1Id, p2Id, p3Id, winnerId })
         });
       }
       await loadData();
