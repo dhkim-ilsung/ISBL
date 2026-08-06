@@ -389,7 +389,12 @@ const triStats = React.useMemo(() => {
     });
     if (per.has(m.winnerId)) {
       per.get(m.winnerId).wins += 1;
-      per.get(m.winnerId).points += 1; // 규칙: 승자 1점
+      per.get(m.winnerId).points += 1;
+    }
+    // 팀전 두 번째 승자
+    if (m.winner2Id && per.has(m.winner2Id)) {
+      per.get(m.winner2Id).wins += 1;
+      per.get(m.winner2Id).points += 1;
     }
   }
   const values = Array.from(per.values()).map(x => ({
