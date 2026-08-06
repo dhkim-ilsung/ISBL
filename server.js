@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS matches3 (
 CREATE INDEX IF NOT EXISTS IX_matches_room     ON matches(room_id, date);
 CREATE INDEX IF NOT EXISTS IX_matches_players  ON matches(a_id, b_id);
 CREATE INDEX IF NOT EXISTS IX_matches3_room ON matches3(room_id, date);
-\`);
+`);
 
 // ---- 기존 DB 마이그레이션 (컬럼 없으면 추가) ----
 try { db.exec('ALTER TABLE matches3 ADD COLUMN p4_id TEXT'); } catch(e) {}
