@@ -42,9 +42,7 @@ function App() {
   const [m3P1, setM3P1] = React.useState("");
   const [m3P2, setM3P2] = React.useState("");
   const [m3P3, setM3P3] = React.useState("");
-  const [m3P4, setM3P4] = React.useState("");       // 팀전용 4번째 선수
-  const [m3Winner, setM3Winner] = React.useState("");
-  const [m3Winner2, setM3Winner2] = React.useState(""); // 팀전용 두 번째 승자
+  const [m3Winner, setM3Winner] = React.useState(""); // m3P1|m3P2|m3P3 중 하나의 ID
 
   // ----------------- 필터 -----------------
   const [filterPlayer, setFilterPlayer] = React.useState("");    // 특정 선수 id 또는 빈값(전체)
@@ -101,17 +99,14 @@ function App() {
         wins: [m.aWins, m.bWins],
       })));
       setHistory3((data.history3 || []).map(m => ({
-        id: m.id,
-        date: m.date,
-        players: [
-          { id: m.p1Id, name: m.p1Name },
-          { id: m.p2Id, name: m.p2Name },
-          { id: m.p3Id, name: m.p3Name },
-          ...(m.p4Id ? [{ id: m.p4Id, name: m.p4Name }] : []),
-        ],
+      id: m.id,
+      date: m.date,
+      players: [
+        { id: m.p1Id, name: m.p1Name },
+        { id: m.p2Id, name: m.p2Name },
+        { id: m.p3Id, name: m.p3Name },
+       ],
         winnerId: m.winnerId,
-        winner2Id: m.winner2Id || null,
-        isTeam: !!m.p4Id,
       })));
 
 
@@ -155,28 +150,19 @@ function App() {
   }
 
 // ----- 3인 경기 저장/삭제 -------
-const isTeamMode = !!m3P4;
-const selectedPlayers = [m3P1, m3P2, m3P3, ...(isTeamMode ? [m3P4] : [])].filter(Boolean);
-const canSave3 = isTeamMode
-  ? m3Date && new Set([m3P1,m3P2,m3P3,m3P4]).size===4 && m3Winner && m3Winner2
-    && m3Winner !== m3Winner2
-    && [m3P1,m3P2,m3P3,m3P4].includes(m3Winner)
-    && [m3P1,m3P2,m3P3,m3P4].includes(m3Winner2)
-  : m3Date && new Set([m3P1,m3P2,m3P3]).size===3 && m3Winner && [m3P1,m3P2,m3P3].includes(m3Winner);
+const canSave3 = m3Date && m3P1 && m3P2 && m3P3 &&
+                 (new Set([m3P1, m3P2, m3P3]).size === 3) &&
+                 m3Winner && [m3P1,m3P2,m3P3].includes(m3Winner);
 
 async function saveMatch3() {
   if (!canSave3) return;
   await fetchJSON(`${baseUrl}/api/billiards/${roomId}/matches3`, {
     method: "POST",
     body: JSON.stringify({
-      date: m3Date, p1Id: m3P1, p2Id: m3P2, p3Id: m3P3,
-      p4Id: m3P4 || undefined,
-      winnerId: m3Winner,
-      winner2Id: m3Winner2 || undefined,
+      date: m3Date, p1Id: m3P1, p2Id: m3P2, p3Id: m3P3, winnerId: m3Winner
     })
   });
-  setM3Date(today()); setM3P1(""); setM3P2(""); setM3P3(""); setM3P4("");
-  setM3Winner(""); setM3Winner2("");
+  setM3Date(today()); setM3P1(""); setM3P2(""); setM3P3(""); setM3Winner("");
   loadData();
 }
 
@@ -274,9 +260,9 @@ const effectiveHistory3 = React.useMemo(() => {
   const rosterSet = new Set((roster || []).map(p => p.id));
   const source = applyFilterToCharts ? filteredHistory3 : history3;
   return (source || []).filter(m => {
-    if (!m?.players || (m.players.length !== 3 && m.players.length !== 4)) return false;
+    if (!m?.players || m.players.length !== 3) return false;
     const ids = m.players.map(p => p.id);
-    if (new Set(ids).size !== ids.length) return false;
+    if (new Set(ids).size !== 3) return false;
     if (!ids.every(id => rosterSet.has(id))) return false;
     if (!ids.includes(m.winnerId)) return false;
     return true;
@@ -389,17 +375,21 @@ const triStats = React.useMemo(() => {
     });
     if (per.has(m.winnerId)) {
       per.get(m.winnerId).wins += 1;
-      per.get(m.winnerId).points += 1; // 규칙: 승자 1점
+      per.get(m.winnerId).points += 1;
     }
   }
-  const ranking = Array.from(per.values()).map(x => ({
+  const values = Array.from(per.values()).map(x => ({
     ...x, winrate: x.games ? x.wins / x.games : 0
-  })).sort((a,b) =>
-    (b.points - a.points) ||
+  }));
+  // 최소경기수 = 최다경기자 경기수 * 70%
+  const maxGames = values.length ? Math.max(...values.map(x => x.games)) : 0;
+  const minGames = Math.floor(maxGames * 0.7);
+  const ranking = values.sort((a,b) =>
     (b.winrate - a.winrate) ||
+    (b.wins - a.wins) ||
     a.name.localeCompare(b.name)
   );
-  return { ranking };
+  return { ranking, minGames };
 }, [roster, effectiveHistory3]);
 
 
@@ -711,7 +701,7 @@ const stats = React.useMemo(() => {
             {k:"history",l:"전적"},
             {k:"stats",  l:"통계"},
             {k:"charts", l:"차트"},
-            {k:"tri",    l:"3인/팀전"}, 
+            {k:"tri",    l:"3인 경기"}, 
           ].map(t => (
             <button key={t.k} className={`px-3 py-2 rounded-full border ${tab===t.k? 'bg-black text-white':'bg-white'}`} onClick={()=>setTab(t.k)}>{t.l}</button>
           ))}
@@ -983,20 +973,7 @@ const stats = React.useMemo(() => {
 
 {tab==="tri" && (
   <div className="mt-4 bg-white rounded-2xl shadow p-4 space-y-6">
-    <div className="font-semibold">3인/팀전 경기 입력</div>
-
-    {/* 경기 유형 선택 */}
-    <div className="flex gap-3">
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input type="radio" name="gameType" checked={!m3P4 && m3P4===""} onChange={()=>{ setM3P4(""); setM3Winner2(""); }} defaultChecked />
-        <span className="text-sm">3인전</span>
-      </label>
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input type="radio" name="gameType" checked={m3P4 !== "" || isTeamMode} onChange={()=>setM3P4(" ")} />
-        <span className="text-sm">팀전 (2vs2)</span>
-      </label>
-    </div>
-
+    <div className="font-semibold">3인 경기 입력</div>
     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
       <div>
         <div className="text-xs opacity-70">일자</div>
@@ -1014,7 +991,7 @@ const stats = React.useMemo(() => {
             <option value="" disabled>선수 선택</option>
             {roster.map(p=>(
               <option key={p.id} value={p.id}
-                disabled={[m3P1,m3P2,m3P3,m3P4].includes(p.id) && p.id!==row.s}>
+                disabled={[m3P1,m3P2,m3P3].includes(p.id) && p.id!==row.s}>
                 {p.name}
               </option>
             ))}
@@ -1023,77 +1000,22 @@ const stats = React.useMemo(() => {
       ))}
     </div>
 
-    {/* 팀전일 때 4번째 선수 */}
-    {isTeamMode && (
-      <div className="w-full md:w-1/4">
-        <div className="text-xs opacity-70">선수 4</div>
-        <select className="border rounded px-3 py-2 w-full"
-                value={m3P4===" " ? "" : m3P4}
-                onChange={e=>setM3P4(e.target.value)}>
-          <option value="" disabled>선수 선택</option>
-          {roster.map(p=>(
-            <option key={p.id} value={p.id}
-              disabled={[m3P1,m3P2,m3P3].includes(p.id)}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
-    )}
-
-    {/* 승자 선택 */}
-    {!isTeamMode ? (
-      <>
-        <div className="text-sm opacity-70">승자 선택 (1명)</div>
-        <div className="flex flex-wrap gap-3">
-          {[m3P1, m3P2, m3P3].filter(Boolean).map(id=>{
-            const name = roster.find(p=>p.id===id)?.name || id;
-            return (
-              <label key={id} className="flex items-center gap-2 border rounded-full px-3 py-1">
-                <input type="radio" name="winner3" checked={m3Winner===id} onChange={()=>setM3Winner(id)} />
-                <span>{name}</span>
-              </label>
-            );
-          })}
-        </div>
-      </>
-    ) : (
-      <>
-        <div className="text-sm opacity-70">승리팀 선택 (2명)</div>
-        <div className="flex flex-wrap gap-3">
-          {[m3P1, m3P2, m3P3, m3P4].filter(id=>id && id.trim()).map(id=>{
-            const name = roster.find(p=>p.id===id)?.name || id;
-            const isW1 = m3Winner === id;
-            const isW2 = m3Winner2 === id;
-            return (
-              <label key={id} className={`flex items-center gap-2 border rounded-full px-3 py-1 cursor-pointer ${isW1||isW2 ? "bg-green-100 border-green-400" : ""}`}
-                onClick={()=>{
-                  if (!m3Winner || m3Winner===id) { setM3Winner(id); }
-                  else if (!m3Winner2 || m3Winner2===id) {
-                    if (m3Winner === id) setM3Winner("");
-                    else setM3Winner2(id);
-                  } else { setM3Winner2(id); }
-                }}>
-                <span>{name}</span>
-                {isW1 && <span className="text-xs text-green-600">✓</span>}
-                {isW2 && <span className="text-xs text-green-600">✓</span>}
-              </label>
-            );
-          })}
-        </div>
-        {m3Winner && m3Winner2 && (
-          <div className="text-xs text-green-600">
-            승리팀: {roster.find(p=>p.id===m3Winner)?.name} · {roster.find(p=>p.id===m3Winner2)?.name}
-            {" vs "}
-            {[m3P1,m3P2,m3P3,m3P4].filter(id=>id&&id.trim()&&id!==m3Winner&&id!==m3Winner2).map(id=>roster.find(p=>p.id===id)?.name).join(" · ")}
-          </div>
-        )}
-      </>
-    )}
+    <div className="text-sm opacity-70">승자 선택</div>
+    <div className="flex flex-wrap gap-3">
+      {[m3P1, m3P2, m3P3].filter(Boolean).map(id=>{
+        const name = roster.find(p=>p.id===id)?.name || id;
+        return (
+          <label key={id} className="flex items-center gap-2 border rounded-full px-3 py-1">
+            <input type="radio" name="winner3" checked={m3Winner===id} onChange={()=>setM3Winner(id)} />
+            <span>{name}</span>
+          </label>
+        );
+      })}
+    </div>
 
     <div className="flex justify-end gap-2">
       <button className="px-3 py-2 border rounded"
-              onClick={()=>{ setM3Date(today()); setM3P1(""); setM3P2(""); setM3P3(""); setM3P4(""); setM3Winner(""); setM3Winner2(""); }}>
+              onClick={()=>{ setM3Date(today()); setM3P1(""); setM3P2(""); setM3P3(""); setM3Winner(""); }}>
         초기화
       </button>
       <button className="px-3 py-2 rounded bg-black text-white disabled:opacity-50"
@@ -1110,29 +1032,11 @@ const stats = React.useMemo(() => {
     ) : (
       <div className="space-y-2">
         {filteredHistory3.map(m=>{
-          if (m.isTeam) {
-            const w1 = m.players.find(p=>p.id===m.winnerId)?.name || m.winnerId;
-            const w2 = m.players.find(p=>p.id===m.winner2Id)?.name || m.winner2Id;
-            const losers = m.players.filter(p=>p.id!==m.winnerId&&p.id!==m.winner2Id).map(p=>p.name);
-            return (
-              <div key={m.id} className="border rounded-xl p-3 flex items-center justify-between">
-                <div>
-                  <div className="text-xs opacity-70">{m.date} · 팀전</div>
-                  <div className="text-sm">
-                    <span className="text-green-600 font-medium">{w1} · {w2}</span>
-                    {" vs "}{losers.join(" · ")}
-                  </div>
-                </div>
-                <button className="px-3 py-2 rounded bg-red-600 text-white"
-                        onClick={()=>deleteMatch3(m.id)}>삭제</button>
-              </div>
-            );
-          }
           const wname = m.players.find(p=>p.id===m.winnerId)?.name || m.winnerId;
           return (
             <div key={m.id} className="border rounded-xl p-3 flex items-center justify-between">
               <div>
-                <div className="text-xs opacity-70">{m.date} · 3인전</div>
+                <div className="text-xs opacity-70">{m.date}</div>
                 <div className="text-sm">
                   {m.players.map(p=>p.name).join(' / ')} → <b>{wname}</b> 승
                 </div>
@@ -1147,7 +1051,7 @@ const stats = React.useMemo(() => {
 
     <div className="h-px bg-gray-200" />
 
-    <div className="font-semibold mb-2">3인/팀전 통계 (승률 기준, 최소경기수={triStats.minGames}경기)</div>
+    <div className="font-semibold mb-2">3인 경기 통계 (정렬기준=승률, 최소경기수={triStats.minGames}경기)</div>
     <div className="overflow-x-auto">
       <table className="min-w-[560px] w-full text-sm border">
         <thead className="bg-gray-100">
@@ -1155,24 +1059,31 @@ const stats = React.useMemo(() => {
             <th className="p-2 text-left">순위</th>
             <th className="p-2 text-left">선수명</th>
             <th className="p-2 text-right">경기</th>
-            <th className="p-2 text-right">승점</th>
             <th className="p-2 text-right">승</th>
             <th className="p-2 text-right">승률</th>
+            <th className="p-2 text-right">최소경기수</th>
           </tr>
         </thead>
         <tbody>
-          {triStats.ranking.map((r, i)=>(
-            <tr key={r.id} className={`border-t ${i===0 ? "bg-yellow-100" : ""}`}>
-              <td className="p-2">{i+1}</td>
-              <td className="p-2">{r.name}</td>
-              <td className="p-2 text-right">{r.games}</td>
-              <td className="p-2 text-right">{r.points}</td>
-              <td className="p-2 text-right">{r.wins}</td>
-              <td className="p-2 text-right">{(r.winrate*100).toFixed(2)}%</td>
-            </tr>
-          ))}
+          {triStats.ranking.map((r, i)=>{
+            const belowMin = r.games < triStats.minGames;
+            const rowClass = belowMin
+              ? "border-t bg-red-100 text-red-700"
+              : i===0 ? "border-t bg-yellow-100" : "border-t";
+            return (
+              <tr key={r.id} className={rowClass}>
+                <td className="p-2">{i+1}</td>
+                <td className="p-2">{r.name}</td>
+                <td className="p-2 text-right">{r.games}</td>
+                <td className="p-2 text-right">{r.wins}</td>
+                <td className="p-2 text-right">{(r.winrate*100).toFixed(2)}%</td>
+                <td className="p-2 text-right">{triStats.minGames}경기 {belowMin ? "❌" : "✅"}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
+      <div className="text-xs text-gray-500 mt-1">* 빨간색: 최소경기수({triStats.minGames}경기) 미달 선수</div>
     </div>
   </div>
 )}

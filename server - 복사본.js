@@ -35,24 +35,18 @@ CREATE TABLE IF NOT EXISTS matches (
   b_wins  INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS matches3 (
-  id         TEXT NOT NULL PRIMARY KEY,
-  room_id    TEXT NOT NULL,
-  date       TEXT NOT NULL,
-  p1_id      TEXT NOT NULL,
-  p2_id      TEXT NOT NULL,
-  p3_id      TEXT NOT NULL,
-  p4_id      TEXT,           -- 팀전일 때만 사용 (4번째 선수)
-  winner_id  TEXT NOT NULL,  -- 3인전: 승자 1명 / 팀전: 팀A 승자1
-  winner2_id TEXT            -- 팀전일 때만 사용 (팀A 승자2)
+  id        TEXT NOT NULL PRIMARY KEY,
+  room_id   TEXT NOT NULL,
+  date      TEXT NOT NULL,   -- YYYY-MM-DD
+  p1_id     TEXT NOT NULL,
+  p2_id     TEXT NOT NULL,
+  p3_id     TEXT NOT NULL,
+  winner_id TEXT NOT NULL     -- p1_id | p2_id | p3_id 중 하나
 );
 CREATE INDEX IF NOT EXISTS IX_matches_room     ON matches(room_id, date);
 CREATE INDEX IF NOT EXISTS IX_matches_players  ON matches(a_id, b_id);
 CREATE INDEX IF NOT EXISTS IX_matches3_room ON matches3(room_id, date);
-\`);
-
-// ---- 기존 DB 마이그레이션 (컬럼 없으면 추가) ----
-try { db.exec('ALTER TABLE matches3 ADD COLUMN p4_id TEXT'); } catch(e) {}
-try { db.exec('ALTER TABLE matches3 ADD COLUMN winner2_id TEXT'); } catch(e) {}
+`);
 
 const uuid = () => crypto.randomUUID();
 
@@ -83,23 +77,20 @@ const q = {
            m.p1_id AS p1Id, p1.name AS p1Name,
            m.p2_id AS p2Id, p2.name AS p2Name,
            m.p3_id AS p3Id, p3.name AS p3Name,
-           m.p4_id AS p4Id, p4.name AS p4Name,
-           m.winner_id AS winnerId,
-           m.winner2_id AS winner2Id
+           m.winner_id AS winnerId
     FROM matches3 m
     JOIN players p1 ON p1.id=m.p1_id
     JOIN players p2 ON p2.id=m.p2_id
     JOIN players p3 ON p3.id=m.p3_id
-    LEFT JOIN players p4 ON p4.id=m.p4_id
     WHERE m.room_id=?
     ORDER BY m.date DESC, m.id DESC
   `),
   insertMatch3: db.prepare(`
-    INSERT INTO matches3(id, room_id, date, p1_id, p2_id, p3_id, p4_id, winner_id, winner2_id)
-    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO matches3(id, room_id, date, p1_id, p2_id, p3_id, winner_id)
+    VALUES(?, ?, ?, ?, ?, ?, ?)
   `),
   updateMatch3: db.prepare(`
-    UPDATE matches3 SET date=?, p1_id=?, p2_id=?, p3_id=?, p4_id=?, winner_id=?, winner2_id=?
+    UPDATE matches3 SET date=?, p1_id=?, p2_id=?, p3_id=?, winner_id=?
     WHERE room_id=? AND id=?
   `),
   deleteMatch3: db.prepare(`
@@ -168,32 +159,28 @@ app.delete('/api/billiards/:roomId/matches/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-// 3인/팀전 전적 추가
+// 3인 전적 추가
 app.post('/api/billiards/:roomId/matches3', (req, res) => {
   const { roomId } = req.params;
-  const { date, p1Id, p2Id, p3Id, p4Id, winnerId, winner2Id } = req.body || {};
+  const { date, p1Id, p2Id, p3Id, winnerId } = req.body || {};
   if (!date || !p1Id || !p2Id || !p3Id || !winnerId)
     return res.status(400).json({ error: 'date,p1Id,p2Id,p3Id,winnerId required' });
-  const players = [p1Id, p2Id, p3Id, ...(p4Id ? [p4Id] : [])];
-  if (!players.includes(winnerId))
-    return res.status(400).json({ error: 'winnerId must be one of players' });
-  if (p4Id && winner2Id && !players.includes(winner2Id))
-    return res.status(400).json({ error: 'winner2Id must be one of players' });
+  if (![p1Id, p2Id, p3Id].includes(winnerId))
+    return res.status(400).json({ error: 'winnerId must be one of p1Id,p2Id,p3Id' });
   const id = crypto.randomUUID();
-  q.insertMatch3.run(id, roomId, String(date), p1Id, p2Id, p3Id, p4Id||null, winnerId, winner2Id||null);
+  q.insertMatch3.run(id, roomId, String(date), p1Id, p2Id, p3Id, winnerId);
   res.json({ id });
 });
 
-// 3인/팀전 전적 수정
+// 3인 전적 수정
 app.put('/api/billiards/:roomId/matches3/:id', (req, res) => {
   const { roomId, id } = req.params;
-  const { date, p1Id, p2Id, p3Id, p4Id, winnerId, winner2Id } = req.body || {};
+  const { date, p1Id, p2Id, p3Id, winnerId } = req.body || {};
   if (!date || !p1Id || !p2Id || !p3Id || !winnerId)
     return res.status(400).json({ error: 'date,p1Id,p2Id,p3Id,winnerId required' });
-  const players = [p1Id, p2Id, p3Id, ...(p4Id ? [p4Id] : [])];
-  if (!players.includes(winnerId))
-    return res.status(400).json({ error: 'winnerId must be one of players' });
-  q.updateMatch3.run(String(date), p1Id, p2Id, p3Id, p4Id||null, winnerId, winner2Id||null, roomId, id);
+  if (![p1Id, p2Id, p3Id].includes(winnerId))
+    return res.status(400).json({ error: 'winnerId must be one of p1Id,p2Id,p3Id' });
+  q.updateMatch3.run(String(date), p1Id, p2Id, p3Id, winnerId, roomId, id);
   res.json({ ok: true });
 });
 
