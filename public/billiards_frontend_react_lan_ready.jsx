@@ -392,14 +392,17 @@ const triStats = React.useMemo(() => {
       per.get(m.winnerId).points += 1; // 규칙: 승자 1점
     }
   }
-  const ranking = Array.from(per.values()).map(x => ({
+  const values = Array.from(per.values()).map(x => ({
     ...x, winrate: x.games ? x.wins / x.games : 0
-  })).sort((a,b) =>
-    (b.points - a.points) ||
+  }));
+  const maxGames = values.length ? Math.max(...values.map(x => x.games)) : 0;
+  const minGames = Math.floor(maxGames * 0.7);
+  const ranking = values.sort((a,b) =>
     (b.winrate - a.winrate) ||
+    (b.wins - a.wins) ||
     a.name.localeCompare(b.name)
   );
-  return { ranking };
+  return { ranking, minGames };
 }, [roster, effectiveHistory3]);
 
 
@@ -1155,22 +1158,28 @@ const stats = React.useMemo(() => {
             <th className="p-2 text-left">순위</th>
             <th className="p-2 text-left">선수명</th>
             <th className="p-2 text-right">경기</th>
-            <th className="p-2 text-right">승점</th>
             <th className="p-2 text-right">승</th>
             <th className="p-2 text-right">승률</th>
+            <th className="p-2 text-right">최소경기수</th>
           </tr>
         </thead>
         <tbody>
-          {triStats.ranking.map((r, i)=>(
-            <tr key={r.id} className={`border-t ${i===0 ? "bg-yellow-100" : ""}`}>
-              <td className="p-2">{i+1}</td>
-              <td className="p-2">{r.name}</td>
-              <td className="p-2 text-right">{r.games}</td>
-              <td className="p-2 text-right">{r.points}</td>
-              <td className="p-2 text-right">{r.wins}</td>
-              <td className="p-2 text-right">{(r.winrate*100).toFixed(2)}%</td>
-            </tr>
-          ))}
+          {triStats.ranking.map((r, i)=>{
+            const belowMin = r.games < triStats.minGames;
+            const rowClass = belowMin
+              ? "border-t bg-red-100 text-red-700"
+              : i===0 ? "border-t bg-yellow-100" : "border-t";
+            return (
+              <tr key={r.id} className={rowClass}>
+                <td className="p-2">{i+1}</td>
+                <td className="p-2">{r.name}</td>
+                <td className="p-2 text-right">{r.games}</td>
+                <td className="p-2 text-right">{r.wins}</td>
+                <td className="p-2 text-right">{(r.winrate*100).toFixed(2)}%</td>
+                <td className="p-2 text-right">{triStats.minGames}경기 {belowMin ? "❌" : "✅"}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
