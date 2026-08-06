@@ -1062,34 +1062,45 @@ const stats = React.useMemo(() => {
       </>
     ) : (
       <>
-        <div className="text-sm opacity-70">승리팀 선택 (2명)</div>
+        <div className="text-sm opacity-70">승리팀 선택 (2명 클릭)</div>
         <div className="flex flex-wrap gap-3">
           {[m3P1, m3P2, m3P3, m3P4].filter(id=>id && id.trim()).map(id=>{
             const name = roster.find(p=>p.id===id)?.name || id;
-            const isW1 = m3Winner === id;
-            const isW2 = m3Winner2 === id;
+            const isWinner = m3Winner === id || m3Winner2 === id;
             return (
-              <label key={id} className={`flex items-center gap-2 border rounded-full px-3 py-1 cursor-pointer ${isW1||isW2 ? "bg-green-100 border-green-400" : ""}`}
+              <button key={id} type="button"
+                className={`border rounded-full px-4 py-1 text-sm font-medium transition-colors ${isWinner ? "bg-green-500 text-white border-green-500" : "bg-white text-gray-700 border-gray-300"}`}
                 onClick={()=>{
-                  if (!m3Winner || m3Winner===id) { setM3Winner(id); }
-                  else if (!m3Winner2 || m3Winner2===id) {
-                    if (m3Winner === id) setM3Winner("");
-                    else setM3Winner2(id);
-                  } else { setM3Winner2(id); }
+                  if (m3Winner === id) {
+                    // 이미 1번 승자면 해제
+                    setM3Winner(m3Winner2);
+                    setM3Winner2("");
+                  } else if (m3Winner2 === id) {
+                    // 이미 2번 승자면 해제
+                    setM3Winner2("");
+                  } else if (!m3Winner) {
+                    setM3Winner(id);
+                  } else if (!m3Winner2) {
+                    setM3Winner2(id);
+                  } else {
+                    // 둘 다 선택된 상태면 2번 교체
+                    setM3Winner2(id);
+                  }
                 }}>
-                <span>{name}</span>
-                {isW1 && <span className="text-xs text-green-600">✓</span>}
-                {isW2 && <span className="text-xs text-green-600">✓</span>}
-              </label>
+                {name} {isWinner ? "✓" : ""}
+              </button>
             );
           })}
         </div>
         {m3Winner && m3Winner2 && (
-          <div className="text-xs text-green-600">
-            승리팀: {roster.find(p=>p.id===m3Winner)?.name} · {roster.find(p=>p.id===m3Winner2)?.name}
+          <div className="text-xs text-green-600 font-medium">
+            ✅ 승리팀: {roster.find(p=>p.id===m3Winner)?.name} · {roster.find(p=>p.id===m3Winner2)?.name}
             {" vs "}
             {[m3P1,m3P2,m3P3,m3P4].filter(id=>id&&id.trim()&&id!==m3Winner&&id!==m3Winner2).map(id=>roster.find(p=>p.id===id)?.name).join(" · ")}
           </div>
+        )}
+        {m3Winner && !m3Winner2 && (
+          <div className="text-xs text-gray-400">1명 선택됨 — 한 명 더 선택해주세요</div>
         )}
       </>
     )}
