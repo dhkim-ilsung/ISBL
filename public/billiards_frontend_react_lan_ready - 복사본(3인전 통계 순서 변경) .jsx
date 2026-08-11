@@ -1123,42 +1123,6 @@ const stats = React.useMemo(() => {
 
     <div className="h-px bg-gray-200" />
 
-    <div className="font-semibold mb-2">3인/팀전 통계 (승률 기준, 최소경기수={triStats.minGames}경기)</div>
-    <div className="overflow-x-auto">
-      <table className="min-w-[560px] w-full text-sm border">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="p-2 text-left">순위</th>
-            <th className="p-2 text-left">선수명</th>
-            <th className="p-2 text-right">경기</th>
-            <th className="p-2 text-right">승</th>
-            <th className="p-2 text-right">승률</th>
-            <th className="p-2 text-right">최소경기수</th>
-          </tr>
-        </thead>
-        <tbody>
-          {triStats.ranking.map((r, i)=>{
-            const belowMin = r.games < triStats.minGames;
-            const rowClass = belowMin
-              ? "border-t bg-red-100 text-red-700"
-              : i===0 ? "border-t bg-yellow-100" : "border-t";
-            return (
-              <tr key={r.id} className={rowClass}>
-                <td className="p-2">{i+1}</td>
-                <td className="p-2">{r.name}</td>
-                <td className="p-2 text-right">{r.games}</td>
-                <td className="p-2 text-right">{r.wins}</td>
-                <td className="p-2 text-right">{(r.winrate*100).toFixed(2)}%</td>
-                <td className="p-2 text-right">{triStats.minGames}경기 {belowMin ? "❌" : "✅"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-
-    <div className="h-px bg-gray-200" />
-
     <div className="font-semibold">3인 경기 전적</div>
     {filteredHistory3.length===0 ? (
       <div className="text-sm opacity-70">표시할 3인 전적이 없습니다. (필터를 조정해보세요)</div>
@@ -1199,6 +1163,42 @@ const stats = React.useMemo(() => {
         })}
       </div>
     )}
+
+    <div className="h-px bg-gray-200" />
+
+    <div className="font-semibold mb-2">3인/팀전 통계 (승률 기준, 최소경기수={triStats.minGames}경기)</div>
+    <div className="overflow-x-auto">
+      <table className="min-w-[560px] w-full text-sm border">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="p-2 text-left">순위</th>
+            <th className="p-2 text-left">선수명</th>
+            <th className="p-2 text-right">경기</th>
+            <th className="p-2 text-right">승</th>
+            <th className="p-2 text-right">승률</th>
+            <th className="p-2 text-right">최소경기수</th>
+          </tr>
+        </thead>
+        <tbody>
+          {triStats.ranking.map((r, i)=>{
+            const belowMin = r.games < triStats.minGames;
+            const rowClass = belowMin
+              ? "border-t bg-red-100 text-red-700"
+              : i===0 ? "border-t bg-yellow-100" : "border-t";
+            return (
+              <tr key={r.id} className={rowClass}>
+                <td className="p-2">{i+1}</td>
+                <td className="p-2">{r.name}</td>
+                <td className="p-2 text-right">{r.games}</td>
+                <td className="p-2 text-right">{r.wins}</td>
+                <td className="p-2 text-right">{(r.winrate*100).toFixed(2)}%</td>
+                <td className="p-2 text-right">{triStats.minGames}경기 {belowMin ? "❌" : "✅"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   </div>
 )}
 
