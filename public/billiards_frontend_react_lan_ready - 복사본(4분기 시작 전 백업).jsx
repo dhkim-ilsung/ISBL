@@ -20,7 +20,7 @@ function App() {
     localStorage.getItem("billiards.baseUrl") || DEFAULT_BASE
   );
   const [roomId, setRoomId] = React.useState(() =>
-    localStorage.getItem("billiards.roomId") || "team-a-20264Q"
+    localStorage.getItem("billiards.roomId") || "team-a-20263Q"
   );
 
   // 주소/룸ID가 바뀌면 자동 저장
