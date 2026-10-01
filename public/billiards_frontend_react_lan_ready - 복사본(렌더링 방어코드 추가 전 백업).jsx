@@ -242,16 +242,15 @@ async function deleteMatch3(id) {
 
 // ▶ 승점/차트 계산에 쓸 "유효 경기" (둘 다 로스터에 있고, 0–0이 아닌 전적만)
 const effectiveHistory = React.useMemo(() => {
-  const rosterSet = new Set((roster||[]).map(p => p.id));
+  const rosterSet = new Set(roster.map(p => p.id));
   const source = applyFilterToCharts ? filteredHistory : history;
-  return (source||[]).filter(m => {
-    if (!m || !Array.isArray(m.players) || !Array.isArray(m.wins)) return false;
-    const [pa, pb] = m.players;
-    if (!pa || !pb || !pa.id || !pb.id) return false;
+  return source.filter(m => {
+    const [pa, pb] = m.players || [];
+    if (!pa || !pb) return false;
     if (!rosterSet.has(pa.id) || !rosterSet.has(pb.id)) return false;
-    const wa = Number(m.wins[0] || 0);
-    const wb = Number(m.wins[1] || 0);
-    if (wa + wb === 0) return false;
+    const wa = Number(m.wins?.[0] || 0);
+    const wb = Number(m.wins?.[1] || 0);
+    if (wa + wb === 0) return false; // 0–0 무효
     return true;
   });
 }, [roster, history, filteredHistory, applyFilterToCharts]);
@@ -298,9 +297,9 @@ function computeStandings(roster, games) {
   // 1️⃣ 쌍별 누적 합산
   const pairTotals = new Map(); // key: "id1-id2" → { [id1]:승, [id2]:승 }
   for (const m of games || []) {
-    if (!m || !Array.isArray(m.players) || m.players.length < 2 || !Array.isArray(m.wins)) continue;
+    if (!m?.players?.length || !m.wins) continue;
     const [pa, pb] = m.players;
-    if (!pa || !pb || !pa.id || !pb.id) continue;
+    if (!pa || !pb) continue;
     if (!rosterSet.has(pa.id) || !rosterSet.has(pb.id)) continue;
     const wa = Number(m.wins[0] || 0);
     const wb = Number(m.wins[1] || 0);
