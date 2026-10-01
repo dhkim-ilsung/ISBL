@@ -429,7 +429,7 @@ const stats = React.useMemo(() => {
   const radarRefs=React.useRef({}); const barRef=React.useRef(null); const lineRef=React.useRef(null);
   const barChart=React.useRef(null); const lineChart=React.useRef(null);
 
-  const chartSource = applyFilterToCharts ? filteredHistory : history;
+  const chartSource = effectiveHistory;
 
   // 레이더/요일 차트용 집계(게임 기준 승률)
   const chartAgg = React.useMemo(()=>{
